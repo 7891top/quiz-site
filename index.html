@@ -31,16 +31,13 @@
 /*
  - MỤC ĐÍCH: admin 24h internal measurement
  - Hành vi: khi trả lời đúng -> mở REF_URL (tab mới) + chuyển tab hiện tại tới FINAL_URL
- - Fallback: nếu popup bị chặn thì chuyển tab hiện tại tới REF_URL (và sau 300ms tới FINAL_URL)
- - Thêm beacon để đo (tuỳ chỉnh endpoint)
+ - Fallback: nếu popup bị chặn thì chuyển current tab tới REF_URL then to FINAL_URL quickly
+ - NOTE: beacon gửi sự kiện đã bị loại bỏ theo yêu cầu
 */
 
 const CORRECT = ["12","mười hai"];
 const REF_URL = "https://www.24h.com.vn/";
-const FINAL_URL = "https://web.wwin79.pro/?a=1a36797027f05aef97aa91d942410619&utm_campaign=googleads&utm_source=inhouse&utm_medium=search&utm_term=%7Bkeyword%7D&utm_content=keybrand";
-
-// (tuỳ bạn) một endpoint nội bộ để ghi sự kiện; đổi thành đường dẫn server của bạn hoặc remove nếu không cần
-const BEACON_URL = "/beacon"; // ví dụ: "/collect-quiz-hit"
+const FINAL_URL = "https://www.24h.com.vn/chinh-tri-xa-hoi-c981.html";
 
 document.getElementById("f").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -59,27 +56,6 @@ document.getElementById("f").addEventListener("submit", (e) => {
   m.textContent = "Đúng rồi! Đang xử lý...";
   m.className = "msg ok";
 
-  // Gửi beacon (non-blocking) để server nội bộ biết user đã trả lời đúng
-  try {
-    const payload = JSON.stringify({
-      event: "quiz_correct",
-      question: "7+5",
-      timestamp: Date.now(),
-      // thêm thông tin bạn muốn: campaign id, utm, user id (nếu hợp lệ)
-    });
-    // dùng navigator.sendBeacon khi có, fallback fetch không chặn
-    if (navigator.sendBeacon) {
-      const blob = new Blob([payload], { type: 'application/json' });
-      navigator.sendBeacon(BEACON_URL, blob);
-    } else {
-      // không chặn thread
-      fetch(BEACON_URL, { method: 'POST', body: payload, headers: {'Content-Type':'application/json'}, keepalive: true }).catch(()=>{});
-    }
-  } catch(err) {
-    // ignore beacon errors
-    console.warn('Beacon error', err);
-  }
-
   // Thử mở tab mới (được phép trong event handler do user interaction)
   let opened = null;
   try {
@@ -90,11 +66,7 @@ document.getElementById("f").addEventListener("submit", (e) => {
 
   // Nếu popup bị chặn (opened === null), fallback: chuyển current tab tới REF_URL then to FINAL_URL quickly
   if (!opened) {
-    // Một cách: điều hướng current tab đến REF_URL, sau đó setTimeout để chuyển tiếp tới FINAL_URL.
-    // Thời gian rất ngắn để trải nghiệm mượt (300ms). Bạn có thể chỉnh.
     window.location.href = REF_URL;
-    // Sau khi current tab đến REF_URL, code trong trang đó sẽ chạy; 
-    // nhưng nếu bạn muốn ngay lập tức chuyển sang FINAL_URL ở cùng tab, dùng setTimeout:
     setTimeout(() => {
       window.location.href = FINAL_URL;
     }, 300);
@@ -102,8 +74,6 @@ document.getElementById("f").addEventListener("submit", (e) => {
   }
 
   // Nếu tab mới mở được, ngay lập tức chuyển tab hiện tại tới FINAL_URL
-  // (đây là hành vi bạn yêu cầu: mở 24h trong tab mới và sang bài viết trong tab hiện)
-  // small delay ensures popup creation completes on some browsers
   setTimeout(() => {
     window.location.href = FINAL_URL;
   }, 50);
